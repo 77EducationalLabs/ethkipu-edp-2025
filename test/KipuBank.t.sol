@@ -2,7 +2,7 @@
 pragma solidity 0.8.26;
 
 import {Test, console} from "forge-std/Test.sol";
-import {KipuBank} from "../src/exam-m2/KipuBank.sol";
+import {KipuBank} from "../src/m2-exam/KipuBank.sol";
 
 contract KipuBankTest is Test {
     //Instances
