@@ -142,7 +142,7 @@ contract KipuBank is Ownable {
      * @param _amount is the amount to be withdrawn
      * @dev User must not be able to withdraw more than deposited
      * @dev User must not be able to withdraw more than the threshold per withdraw
-     * @custom:newFeature
+     * @custom:newfeature
      */
     function withdrawUSDC(uint256 _amount) external {
         uint256 userBalance = s_vault[msg.sender][address(i_usdc)];
@@ -161,7 +161,7 @@ contract KipuBank is Ownable {
      * @notice function to update the Chainlink Price Feed
      * @param _feed the new Price Feed address
      * @dev must only be called by the owner
-     * @custom:newFeature
+     * @custom:newfeature
      */
     function setFeeds(address _feed) external onlyOwner {
         s_feeds = AggregatorV3Interface(_feed);
@@ -172,7 +172,7 @@ contract KipuBank is Ownable {
     /**
      * @notice external view function to return the contract's balance
      * @return balance_ the amount of ETH in the contract
-     * @custom:newFeature
+     * @custom:newfeature
      */
     function contractBalanceInUSD() public view returns (uint256 balance_) {
         uint256 convertedUSDAmount = convertEthInUSD(address(this).balance);
@@ -184,7 +184,7 @@ contract KipuBank is Ownable {
      * @notice internal function to perform decimals conversion from ETH to USDC
      * @param _ethAmount the amount of ETH to be converted
      * @return convertedAmount_ the calculations result.
-     * @custom:newFeature
+     * @custom:newfeature
      */
     function convertEthInUSD(uint256 _ethAmount) internal view returns (uint256 convertedAmount_) {
         convertedAmount_ = (_ethAmount * chainlinkFeed()) / DECIMAL_FACTOR;
@@ -194,7 +194,7 @@ contract KipuBank is Ownable {
      * @notice function to query the USD price of ETH
      * @return ethUSDPrice_ the price provided by the oracle.
      * @dev this is a simplified implementation, and it's not fully best practices compliant
-     * @custom:newFeature
+     * @custom:newfeature
      */
     function chainlinkFeed() internal view returns (uint256 ethUSDPrice_) {
         (, int256 ethUSDPrice,, uint256 updatedAt,) = s_feeds.latestRoundData();
