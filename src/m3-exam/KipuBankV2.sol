@@ -24,7 +24,7 @@ import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interf
  * @notice This is an example contract used as a parameter for the third module of the Ethereum Developer Pack - São Paulo / Brazil
  * @custom:contact anySocial/i3arba
  */
-contract KipuBank is Ownable {
+contract KipuBankV2 is Ownable {
     /*///////////////////////
         TYPE DECLARATIONS
     ///////////////////////*/
@@ -92,6 +92,9 @@ contract KipuBank is Ownable {
         _;
     }
 
+    /*//////////////////////////
+            * External *
+    //////////////////////////*/
     /**
      * @notice external function to receive native deposits
      * @notice Emit an event when deposits succeed.
@@ -126,7 +129,7 @@ contract KipuBank is Ownable {
      * @dev User must not be able to withdraw more than deposited
      * @dev User must not be able to withdraw more than the threshold per withdraw
      */
-    function withdrawETH(uint256 _amount) external {
+    function withdrawEther(uint256 _amount) external {
         uint256 userBalance = s_vault[msg.sender][address(0)];
 
         if (_amount > userBalance) revert KipuBank_AmountExceedBalance(_amount, userBalance);
@@ -169,6 +172,23 @@ contract KipuBank is Ownable {
         emit KipuBank_ChainlinkFeedUpdated(_feed);
     }
 
+    /*//////////////////////////
+            * Private *
+    //////////////////////////*/
+    /**
+     * @notice internal function to process the ETH transfer from: contract -> to: user
+     * @dev emits an event if success
+     */
+    function _processTransfer(uint256 _amount) private {
+        emit KipuBank_SuccessfullyWithdrawn(msg.sender, _amount);
+
+        (bool success, bytes memory data) = msg.sender.call{value: _amount}("");
+        if (!success) revert KipuBank_TransferFailed(data);
+    }
+
+    /*//////////////////////////
+           * Pure & View *
+    //////////////////////////*/
     /**
      * @notice external view function to return the contract's balance
      * @return balance_ the amount of ETH in the contract
@@ -203,16 +223,5 @@ contract KipuBank is Ownable {
         if (block.timestamp - updatedAt > ORACLE_HEARTBEAT) revert KipuBank_StalePrice();
 
         ethUSDPrice_ = uint256(ethUSDPrice);
-    }
-
-    /**
-     * @notice internal function to process the ETH transfer from: contract -> to: user
-     * @dev emits an event if success
-     */
-    function _processTransfer(uint256 _amount) private {
-        emit KipuBank_SuccessfullyWithdrawn(msg.sender, _amount);
-
-        (bool success, bytes memory data) = msg.sender.call{value: _amount}("");
-        if (!success) revert KipuBank_TransferFailed(data);
     }
 }

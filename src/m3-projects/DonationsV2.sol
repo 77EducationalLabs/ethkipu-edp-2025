@@ -54,16 +54,12 @@ contract DonationsV2 is Ownable {
 	event DonationsV2_SaqueRealizado(address recebedor, uint256 valor);
     ///@notice event emitted when the Chainlink Feed is updated
     event DonationsV2_ChainlinkFeedUpdated(address feed);
-    ///@notice event emitted when a deposit is successfully completed
-    event DonationsV2_SuccessfullyDonated(address user, uint256 amount);
 	
 	/*///////////////////////
 			 Errors
 	///////////////////////*/
 	///@notice erro emitido quando uma transação falha
 	error DonationsV2_TrasacaoFalhou(bytes erro);
-	///@notice erro emitido quando um endereço diferente do beneficiario tentar sacar
-	error DonationsV2_SacadorNaoPermitido(address chamador, address beneficiario);
     ///@notice error emitted when the oracle return is wrong
     error KipuBank_OracleCompromised();
     ///@notice error emitted when the last oracle update is bigger than the heartbeat
@@ -85,7 +81,7 @@ contract DonationsV2 is Ownable {
 	function doeETH() external payable {
 		uint256 amountDonatedInUSD = convertEthInUSD(msg.value);
 
-		s_doacoes[msg.sender] = s_doacoes[msg.sender] += convertEthInUSD(amountDonatedInUSD);
+		s_doacoes[msg.sender] = s_doacoes[msg.sender] + amountDonatedInUSD;
 	
 		emit DonationsV2_DoacaoRecebida(msg.sender, amountDonatedInUSD);
 	}
@@ -98,7 +94,7 @@ contract DonationsV2 is Ownable {
 	function doeUSDC(uint256 _usdcAmount) external {
         s_doacoes[msg.sender] += _usdcAmount;
 
-        emit DonationsV2_SuccessfullyDonated(msg.sender, _usdcAmount);
+        emit DonationsV2_DoacaoRecebida(msg.sender, _usdcAmount);
 
         i_usdc.safeTransferFrom(msg.sender, address(this), _usdcAmount);
 
@@ -112,13 +108,13 @@ contract DonationsV2 is Ownable {
 	function saque() external onlyOwner {		
 		uint256 ethBalance = address(this).balance;
 		uint256 usdcBalance = i_usdc.balanceOf(address(this));
-
 		
 		if(ethBalance > 0){
 			emit DonationsV2_SaqueRealizado(msg.sender, ethBalance);
 
 			_transferirEth(ethBalance);
-		} else if (usdcBalance > 0) {
+		}
+		if (usdcBalance > 0) {
 			emit DonationsV2_SaqueRealizado(msg.sender, usdcBalance);
 
 			i_usdc.safeTransfer(msg.sender, usdcBalance);
