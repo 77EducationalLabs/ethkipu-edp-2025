@@ -15,16 +15,12 @@ contract KipuBankV2Test is Test {
 
     //Variables ~ Utils
     uint256 constant BANK_CAP = 10_000 * 10 ** 6;
-    uint256 constant ETHER_INITIAL_BALANCE = 100 * 10**18;
-    uint256 constant USDC_INITIAL_BALANCE = 1_000 * 10**6;
+    uint256 constant ETHER_INITIAL_BALANCE = 100 * 10 ** 18;
+    uint256 constant USDC_INITIAL_BALANCE = 1_000 * 10 ** 6;
     address constant CL_FEED = address(0);
 
     function setUp() public {
-        bank = new KipuBankV2(
-            BANK_CAP,
-            CL_FEED,
-            Barba
-        );
+        bank = new KipuBankV2(BANK_CAP, CL_FEED, Barba);
 
         vm.deal(Barba, ETHER_INITIAL_BALANCE);
         vm.deal(student1, ETHER_INITIAL_BALANCE);
@@ -76,7 +72,9 @@ contract KipuBankV2Test is Test {
         bank.withdrawEther(complaintAmount);
 
         vm.prank(Barba);
-        vm.expectRevert(abi.encodeWithSelector(KipuBankV2_AmountExceedBalance.selector, exceedingAmount, exceedingAmount));
+        vm.expectRevert(
+            abi.encodeWithSelector(KipuBankV2_AmountExceedBalance.selector, exceedingAmount, exceedingAmount)
+        );
         bank.withdrawEther(exceedingAmount);
 
         assertEq(bank.s_withdrawsCounter(), 0);

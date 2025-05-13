@@ -2,17 +2,16 @@
 pragma solidity 0.8.26;
 
 ///@notice Foundry Tools
-import { Test, console } from "forge-std/Test.sol";
+import {Test, console} from "forge-std/Test.sol";
 
 ///@notice Contrato do Projeto
-import { DonationsV2 } from "src/m3-projects/DonationsV2.sol";
-import { MockERC20 } from "test/mocks/MockERC20.sol";
+import {DonationsV2} from "src/m3-projects/DonationsV2.sol";
+import {MockERC20} from "test/mocks/MockERC20.sol";
 
 ///@notice Mock Chainlink
-import { MockV3Aggregator } from "@chainlink-local/src/data-feeds/MockV3Aggregator.sol";
+import {MockV3Aggregator} from "@chainlink-local/src/data-feeds/MockV3Aggregator.sol";
 
 contract DonationsV2Test is Test {
-
     ///@notice Instância do Contrato
     DonationsV2 public s_v2;
 
@@ -28,15 +27,15 @@ contract DonationsV2Test is Test {
     address s_user2 = address(2);
 
     ///@notice initial amounts
-    uint256 constant ETHER_INITIAL_AMOUNT = 100 * 10**18;
-    uint256 constant USDC_INITIAL_AMOUNT = 10_000 * 10**6;
+    uint256 constant ETHER_INITIAL_AMOUNT = 100 * 10 ** 18;
+    uint256 constant USDC_INITIAL_AMOUNT = 10_000 * 10 ** 6;
 
     ///@notice Parâmetros do CL Feeds
     uint8 constant DECIMALS = 8;
-    int256 constant INITIAL_ANSWER = 2500 * 10 **8;
+    int256 constant INITIAL_ANSWER = 2500 * 10 ** 8;
 
     ///@notice Variáveis para Testes
-    uint256 constant ONE_ETHER_TO_USD = 2500 * 10**6;
+    uint256 constant ONE_ETHER_TO_USD = 2500 * 10 ** 6;
 
     /*////////////////////////////////////
             * ENVIRONMENT SETUP * 
@@ -45,16 +44,9 @@ contract DonationsV2Test is Test {
     function setUp() public {
         vm.startPrank(s_owner);
         s_usdc = new MockERC20("USDC", "USDC");
-        s_clFeed = new MockV3Aggregator(
-            DECIMALS,
-            INITIAL_ANSWER
-        );
+        s_clFeed = new MockV3Aggregator(DECIMALS, INITIAL_ANSWER);
 
-        s_v2 = new DonationsV2(
-            address(s_clFeed),
-            address(s_usdc),
-            s_owner
-        );
+        s_v2 = new DonationsV2(address(s_clFeed), address(s_usdc), s_owner);
         vm.stopPrank();
 
         ///@notice Distribui ether
@@ -155,6 +147,7 @@ contract DonationsV2Test is Test {
                * Saque Revert * 
     ////////////////////////////////////*/
     error OwnableUnauthorizedAccount(address caller);
+
     function test_saqueRevert() public {
         vm.prank(s_user1);
         vm.expectRevert(abi.encodeWithSelector(OwnableUnauthorizedAccount.selector, s_user1));
@@ -181,7 +174,6 @@ contract DonationsV2Test is Test {
         vm.expectRevert(abi.encodeWithSelector(OwnableUnauthorizedAccount.selector, s_user1));
         emit DonationsV2.DonationsV2_ChainlinkFeedUpdated(address(77));
         s_v2.setFeeds(address(77));
-
     }
 
     /*////////////////////////////////////
