@@ -5,6 +5,7 @@ pragma solidity 0.8.26;
         Imports
 ///////////////////////*/
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ETHDevPackNFT} from "src/m3-projects/ETHDevPackNFT.sol";
 
 /*///////////////////////
         Libraries
@@ -34,6 +35,8 @@ contract DonationsV2 is Ownable {
     ///////////////////////*/
     ///@notice immutable variable to store the USDC address
     IERC20 immutable i_usdc;
+    ///@notice immutable variable to store the EDP's NFT
+     ETHDevPackNFT immutable i_edp;
 
     ///@notice constant variable to hold Data Feeds Heartbeat
     uint256 constant ORACLE_HEARTBEAT = 3600;
@@ -71,6 +74,7 @@ contract DonationsV2 is Ownable {
     constructor(address _feed, address _usdc, address _owner) Ownable(_owner) {
         s_feeds = AggregatorV3Interface(_feed);
         i_usdc = IERC20(_usdc);
+        i_edp = new ETHDevPackNFT(_owner, _owner, address(this));
     }
 
     /**
