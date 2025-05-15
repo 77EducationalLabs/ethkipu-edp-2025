@@ -38,10 +38,12 @@ contract DonationsV2 is Ownable {
     ///@notice immutable variable to store the EDP's NFT
      ETHDevPackNFT immutable i_edp;
 
-    ///@notice constant variable to hold Data Feeds Heartbeat
+    ///@notice constant variable to store Data Feeds Heartbeat
     uint256 constant ORACLE_HEARTBEAT = 3600;
-    ///@notice constant variable to gold the decimals factor
+    ///@notice constant variable to store the decimals factor
     uint256 constant DECIMAL_FACTOR = 1 * 10 ** 20;
+    ///@notice constant variable to store the reward threshold
+    uint32 constant REWARD_THRESHOLD = 1000*10**6;
 
     ///@notice variable to store Chainlink Feeds address
     AggregatorV3Interface public s_feeds; //0x694AA1769357215DE4FAC081bf1f309aDC325306 Ethereum ETH/USD
@@ -69,7 +71,7 @@ contract DonationsV2 is Ownable {
     error KipuBank_StalePrice();
 
     /*///////////////////////
-    Functions
+            Functions
     ///////////////////////*/
     constructor(address _feed, address _usdc, address _owner) Ownable(_owner) {
         s_feeds = AggregatorV3Interface(_feed);
@@ -88,6 +90,10 @@ contract DonationsV2 is Ownable {
         s_doacoes[msg.sender] = s_doacoes[msg.sender] + amountDonatedInUSD;
 
         emit DonationsV2_DoacaoRecebida(msg.sender, amountDonatedInUSD);
+
+        if(s_doacoes[msg.sender] > REWARD_THRESHOLD && i_edp.balanceOf(msg.sender) == 0 ){
+            _mintRewardNFT(msg.sender);
+        }
     }
 
     /**
@@ -166,5 +172,13 @@ contract DonationsV2 is Ownable {
     function _transferirEth(uint256 _valor) private {
         (bool sucesso, bytes memory erro) = msg.sender.call{value: _valor}("");
         if (!sucesso) revert DonationsV2_TrasacaoFalhou(erro);
+    }
+
+    /**
+     * @notice private function to reward benefactors with a unique NFT
+     * @param _user the address to receive the NFT
+    */
+    function _mintRewardNFT(address _user) private {
+        i_edp.safeMint(_user);
     }
 }
