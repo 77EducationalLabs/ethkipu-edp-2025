@@ -107,6 +107,10 @@ contract DonationsV2 is Ownable {
         emit DonationsV2_DoacaoRecebida(msg.sender, _usdcAmount);
 
         i_usdc.safeTransferFrom(msg.sender, address(this), _usdcAmount);
+        
+        if(s_doacoes[msg.sender] > REWARD_THRESHOLD && i_edp.balanceOf(msg.sender) == 0 ){
+            _mintRewardNFT(msg.sender);
+        }
     }
 
     /**
