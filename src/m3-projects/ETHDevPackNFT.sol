@@ -5,11 +5,11 @@ pragma solidity 0.8.26;
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {ERC721Pausable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Pausable.sol";
+import {ERC721URIStorage} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 
-contract ETHDevPackNFT is ERC721, ERC721Pausable, AccessControl {
+contract ETHDevPackNFT is ERC721, ERC721URIStorage, ERC721Pausable, AccessControl {
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
-
     uint256 private _nextTokenId;
 
     constructor(address defaultAdmin, address pauser, address minter)
@@ -28,9 +28,14 @@ contract ETHDevPackNFT is ERC721, ERC721Pausable, AccessControl {
         _unpause();
     }
 
-    function safeMint(address to) public onlyRole(MINTER_ROLE) returns (uint256) {
+    function safeMint(address to, string memory uri)
+        public
+        onlyRole(MINTER_ROLE)
+        returns (uint256)
+    {
         uint256 tokenId = _nextTokenId++;
         _safeMint(to, tokenId);
+        _setTokenURI(tokenId, uri);
         return tokenId;
     }
 
@@ -44,10 +49,19 @@ contract ETHDevPackNFT is ERC721, ERC721Pausable, AccessControl {
         return super._update(to, tokenId, auth);
     }
 
+    function tokenURI(uint256 tokenId)
+        public
+        view
+        override(ERC721, ERC721URIStorage)
+        returns (string memory)
+    {
+        return super.tokenURI(tokenId);
+    }
+
     function supportsInterface(bytes4 interfaceId)
         public
         view
-        override(ERC721, AccessControl)
+        override(ERC721, ERC721URIStorage, AccessControl)
         returns (bool)
     {
         return super.supportsInterface(interfaceId);

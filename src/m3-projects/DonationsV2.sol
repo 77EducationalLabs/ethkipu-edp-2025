@@ -50,6 +50,8 @@ contract DonationsV2 is Ownable {
     ///@notice mapping para armazenar o valor doado por usuário
     mapping(address usuario => uint256 valor) public s_doacoes;
 
+    string[3] public s_imagens;
+
     /*///////////////////////
     Events
     ////////////////////////*/
@@ -69,6 +71,10 @@ contract DonationsV2 is Ownable {
     error KipuBank_OracleCompromised();
     ///@notice error emitted when the last oracle update is bigger than the heartbeat
     error KipuBank_StalePrice();
+    ///@notice error emitted when the donated value is not enough to mint the NFT
+    error DonationsV2_NotEnoughDonated(uint256 valueDonated, uint256 threshold);
+    ///@notice error emitted when a user already has the NFT
+    error DonationsV2_NFTAlreadyMinted();
 
     /*///////////////////////
             Functions
@@ -77,6 +83,9 @@ contract DonationsV2 is Ownable {
         s_feeds = AggregatorV3Interface(_feed);
         i_usdc = IERC20(_usdc);
         i_edp = new ETHDevPackNFT(_owner, _owner, address(this));
+        s_imagens[0] = "https://gateway.pinata.cloud/ipfs/bafybeicscy6wlrpgutoekt6lat2ygd53gvv3ddzf4kgjqm5gqadnnmxp44/kipi-the-llama.json";
+        s_imagens[1] = "https://gateway.pinata.cloud/ipfs/bafybeicscy6wlrpgutoekt6lat2ygd53gvv3ddzf4kgjqm5gqadnnmxp44/chaski-the-messenger.json";
+        s_imagens[2] = "https://gateway.pinata.cloud/ipfs/bafybeicscy6wlrpgutoekt6lat2ygd53gvv3ddzf4kgjqm5gqadnnmxp44/inti-the-fox.json";
     }
 
     /**
@@ -90,10 +99,6 @@ contract DonationsV2 is Ownable {
         s_doacoes[msg.sender] = s_doacoes[msg.sender] + amountDonatedInUSD;
 
         emit DonationsV2_DoacaoRecebida(msg.sender, amountDonatedInUSD);
-
-        if(s_doacoes[msg.sender] > REWARD_THRESHOLD && i_edp.balanceOf(msg.sender) == 0 ){
-            _mintRewardNFT(msg.sender);
-        }
     }
 
     /**
@@ -107,10 +112,18 @@ contract DonationsV2 is Ownable {
         emit DonationsV2_DoacaoRecebida(msg.sender, _usdcAmount);
 
         i_usdc.safeTransferFrom(msg.sender, address(this), _usdcAmount);
-        
-        if(s_doacoes[msg.sender] > REWARD_THRESHOLD && i_edp.balanceOf(msg.sender) == 0 ){
-            _mintRewardNFT(msg.sender);
-        }
+    }
+
+    /**
+     * @notice private function to reward benefactors with a unique NFT
+     * @param _user the address to receive the NFT
+    */
+    function mintRewardNFT(address _user, uint256 _imageID) external {
+        uint256 valueDonated = s_doacoes[msg.sender];
+        if(valueDonated > REWARD_THRESHOLD) revert DonationsV2_NotEnoughDonated(valueDonated, REWARD_THRESHOLD);
+        if(i_edp.balanceOf(msg.sender) > 0) revert DonationsV2_NFTAlreadyMinted();
+
+        i_edp.safeMint(_user, s_imagens[_imageID]);
     }
 
     /**
@@ -176,13 +189,5 @@ contract DonationsV2 is Ownable {
     function _transferirEth(uint256 _valor) private {
         (bool sucesso, bytes memory erro) = msg.sender.call{value: _valor}("");
         if (!sucesso) revert DonationsV2_TrasacaoFalhou(erro);
-    }
-
-    /**
-     * @notice private function to reward benefactors with a unique NFT
-     * @param _user the address to receive the NFT
-    */
-    function _mintRewardNFT(address _user) private {
-        i_edp.safeMint(_user);
     }
 }
