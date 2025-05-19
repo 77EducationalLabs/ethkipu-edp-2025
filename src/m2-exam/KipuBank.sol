@@ -5,7 +5,7 @@ pragma solidity 0.8.26;
  * @title KipuBank
  * @author Barba - 77 Innovation Labs
  * @dev Do not use it in production
- * @notice This is an example contract used as a parameter for the second module of the Ethereum Developer Pack - São Paulo / Brazil
+ * @notice This is an example contract used as a parameter for the second module of the Ethereum Developer Pack / Brazil
  * @custom:contact anySocial/i3arba
  */
 contract KipuBank {

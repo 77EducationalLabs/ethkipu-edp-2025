@@ -24,7 +24,7 @@ import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interf
  * @notice This is an example contract used as a parameter for the third module of the Ethereum Developer Pack / Brazil
  * @custom:contact anySocial/i3arba
  */
-contract KipuBankV2 is Ownable {
+contract KipuBankV3 is Ownable {
     /*///////////////////////
         TYPE DECLARATIONS
     ///////////////////////*/
@@ -33,6 +33,11 @@ contract KipuBankV2 is Ownable {
     /*///////////////////////
            VARIABLES
     ///////////////////////*/
+    enum TokenType{
+        USDC,
+        ETH
+    }
+
     ///@notice immutable variable to hold the max amount the vault can store
     uint256 immutable i_bankCap;
     ///@notice immutable variable to store the USDC address
@@ -101,6 +106,7 @@ contract KipuBankV2 is Ownable {
      * @dev after the transaction contract balance should not be bigger than the bank cap
      */
     function depositEther() external payable bankCapCheck(ZERO) {
+        //TODO: add Aave
         s_depositsCounter = s_depositsCounter + 1;
 
         s_vault[msg.sender][address(0)] += msg.value;
@@ -114,6 +120,7 @@ contract KipuBankV2 is Ownable {
      * @dev after the transaction contract balance should not be bigger than the bank cap
      */
     function depositUSDC(uint256 _usdcAmount) external bankCapCheck(_usdcAmount) {
+        //TODO: add Aave
         s_depositsCounter = s_depositsCounter + 1;
 
         s_vault[msg.sender][address(i_usdc)] += _usdcAmount;
@@ -121,6 +128,10 @@ contract KipuBankV2 is Ownable {
         emit KipuBank_SuccessfullyDeposited(msg.sender, _usdcAmount);
 
         i_usdc.safeTransferFrom(msg.sender, address(this), _usdcAmount);
+    }
+
+    function depositArbitraryToken(uint256 _amount, TokenType _token) external bankCapCheck(_amount){
+        //TODO: add Uniswap
     }
 
     /**
