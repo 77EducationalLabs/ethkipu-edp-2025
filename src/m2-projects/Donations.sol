@@ -61,7 +61,6 @@ contract Donations {
      * @notice função para saque do valor das doações
      * @notice o valor do saque deve ser o valor da nota enviada
      * @dev somente o beneficiário pode sacar
-     * @param _id O ID da nota fiscal
      * @param _valor O valor da nota fiscal
      */
     function saque(uint256 _valor) external {

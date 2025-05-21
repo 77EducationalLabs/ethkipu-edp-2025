@@ -37,7 +37,7 @@ contract Mensagem {
 
     /**
      * @notice função get para retornar a mensagem armazenada
-     * @return _mensagem armazenada
+     * @return mensagem_ mensagem no storage do contrato
      */
     function getMensagem() public view returns (string memory mensagem_) {
         mensagem_ = s_mensagem;
