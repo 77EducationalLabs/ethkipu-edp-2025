@@ -3,6 +3,7 @@
 1. Create file
 2. Add Layout
 3. Install OZ
+    - forge install OpenZeppelin/openzeppelin-contracts --no-commit
 4. Install Uniswap dependencies
     - forge install Uniswap/swap-router-contracts --no-commit
     - forge install uniswap/v4-periphery --no-commit
@@ -10,7 +11,6 @@
     - forge install uniswap/universal-router --no-commit
     - forge install uniswap/v3-core --no-commit
     - forge install uniswap/v2-core --no-commit
-    - forge install OpenZeppelin/openzeppelin-contracts --no-commit
 5. Update remappings
     - @openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
     - @swap/contracts/=lib/swap-router-contracts/contracts/

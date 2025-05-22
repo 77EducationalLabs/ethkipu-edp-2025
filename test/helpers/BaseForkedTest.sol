@@ -4,7 +4,6 @@ pragma solidity 0.8.28;
 import { Test, console } from "forge-std/Test.sol";
 
 import { SwapModule } from "src/m4-projects/SwapModule.sol";
-import { StakeModule } from "src/m4-projects/StakeModule.sol";
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IPermit2 } from "@uniswap/permit2/src/interfaces/IPermit2.sol";
@@ -12,12 +11,10 @@ import { IPermit2 } from "@uniswap/permit2/src/interfaces/IPermit2.sol";
 abstract contract BaseForkedTest is Test {
     ///@notice Contract Instances
     SwapModule public s_swap;
-    StakeModule public s_stake;
 
     ///@notice Ethereum Uniswap Variables
     address payable constant UNIVERSAL_ROUTER_ADDRESS = payable(0x66a9893cC07D91D95644AEDD05D03f95e1dBA8Af);
     address constant PERMIT2_ADDRESS = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
-    address constant POOL_MANAGER_ADDRESS = 0x000000000004444c5dc75cB358380D2e3dE08A90;
     
     IPermit2 PERMIT2 = IPermit2(PERMIT2_ADDRESS);
 
@@ -44,9 +41,9 @@ abstract contract BaseForkedTest is Test {
         vm.label(UNIVERSAL_ROUTER_ADDRESS, "UNIVERSAL_ROUTER");
         vm.label(PERMIT2_ADDRESS, "PERMIT2");
         vm.label(USDC_ADDRESS, "USDC");
+        vm.label(WBTC_ADDRESS, "wBTC");
 
         vm.deal(BARBA, ETH_INITIAL_AMOUNT);
         deal(WBTC_ADDRESS, BARBA, BTC_INITIAL_AMOUNT);
     }
-    
 }

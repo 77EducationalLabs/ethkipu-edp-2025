@@ -20,6 +20,9 @@ import { Actions } from "@uniswap/v4-periphery/src/libraries/Actions.sol";
 
 contract SwapModuleTest is BaseForkedTest {
 
+    /*///////////////////////////////////////////
+                    Test's input
+    ///////////////////////////////////////////*/
     PoolKey ETH_USDC_KEY = PoolKey({
         currency0: Currency.wrap(ETH),
         currency1: Currency.wrap(USDC_ADDRESS),
@@ -58,7 +61,7 @@ contract SwapModuleTest is BaseForkedTest {
 
     function test_wBTCSwapSucceed() public {
         uint128 amountIn = 5e6;
-        uint128 minAmountOut = 5_000e6; //wrong
+        uint128 minAmountOut = 5_000e6;
 
         vm.startPrank(BARBA);
         WBTC.approve(address(s_swap), amountIn);
