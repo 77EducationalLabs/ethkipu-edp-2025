@@ -5,17 +5,25 @@ pragma solidity 0.8.26;
         Imports
 ///////////////////////*/
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import { UniversalRouter } from "@uniswap/universal-router/contracts/UniversalRouter.sol";
+import { PoolKey } from "@uniswap/v4-core/src/types/PoolKey.sol";
+import { Currency } from "@uniswap/v4-core/src/types/Currency.sol";
 
 /*///////////////////////
         Libraries
 ///////////////////////*/
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+///@notice Dependencies are broken. So I had to copy the file from the Uni repo.
+import { Commands } from "src/m4-projects/helpers/Commands.sol";
+import { Actions } from "@uniswap/v4-periphery/src/libraries/Actions.sol";
 
 /*///////////////////////
         Interfaces
 ///////////////////////*/
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
+import { IPermit2 } from "@uniswap/permit2/src/interfaces/IPermit2.sol";
+import { IV4Router } from "@uniswap/v4-periphery/src/interfaces/IV4Router.sol";
 
 /**
  * @title KipuBankV2
@@ -33,15 +41,14 @@ contract KipuBankV3 is Ownable {
     /*///////////////////////
            VARIABLES
     ///////////////////////*/
-    enum TokenType{
-        USDC,
-        ETH
-    }
 
     ///@notice immutable variable to hold the max amount the vault can store
     uint256 immutable i_bankCap;
     ///@notice immutable variable to store the USDC address
     IERC20 immutable i_usdc;
+    ///@notice Uniswap Instances
+    UniversalRouter public immutable i_router;
+    IPermit2 public immutable i_permit2;
 
     ///@notice constant variable to hold Data Feeds Heartbeat
     uint256 constant ORACLE_HEARTBEAT = 3600;
@@ -69,6 +76,8 @@ contract KipuBankV3 is Ownable {
     event KipuBank_SuccessfullyWithdrawn(address user, uint256 amount);
     ///@notice event emitted when the Chainlink Feed is updated
     event KipuBank_ChainlinkFeedUpdated(address feed);
+    ///@notice event emitted when the swap is successfully completed
+    event KipuBank_SwapExecuted(address indexed user);
 
     /*///////////////////////
             ERRORS
@@ -83,13 +92,27 @@ contract KipuBankV3 is Ownable {
     error KipuBank_OracleCompromised();
     ///@notice error emitted when the last oracle update is bigger than the heartbeat
     error KipuBank_StalePrice();
+    ///@notice error emitted if the user inputs USDC on the arbitrary deposit function
+    error KipuBank_USDCMustBeDirectlyDeposited();
+    ///@notice error emitted if the native token transfer fails
+    error KipuBank_TransactionFailed(bytes data);
+    ///@notice error emitted if the tokeOut chosen is not USDC
+    error KipuBank_TokenNotAllowedToBeSwappedIn(address tokenOut, address _usdc);
 
     /*///////////////////////
            FUNCTIONS
     ///////////////////////*/
-    constructor(uint256 _bankCap, address _feed, address _owner) Ownable(_owner) {
+    constructor(
+        uint256 _bankCap,
+        address _feed,
+        address payable _router,
+        address _permit2,
+        address _owner
+    ) Ownable(_owner) {
         i_bankCap = _bankCap;
         s_feeds = AggregatorV3Interface(_feed);
+        i_router = UniversalRouter(_router);
+        i_permit2 = IPermit2(_permit2);
     }
 
     modifier bankCapCheck(uint256 _usdcAmount) {
@@ -106,7 +129,6 @@ contract KipuBankV3 is Ownable {
      * @dev after the transaction contract balance should not be bigger than the bank cap
      */
     function depositEther() external payable bankCapCheck(ZERO) {
-        //TODO: add Aave
         s_depositsCounter = s_depositsCounter + 1;
 
         s_vault[msg.sender][address(0)] += msg.value;
@@ -130,8 +152,28 @@ contract KipuBankV3 is Ownable {
         i_usdc.safeTransferFrom(msg.sender, address(this), _usdcAmount);
     }
 
-    function depositArbitraryToken(uint256 _amount, TokenType _token) external bankCapCheck(_amount){
-        //TODO: add Uniswap
+    function depositArbitraryToken(
+        PoolKey calldata _key,
+        uint128 _amountIn,
+        uint128 _minAmountOut,
+        uint48 _deadline
+    ) external {
+        address tokenIn = Currency.unwrap(_key.currency0);
+        address tokenOut = Currency.unwrap(_key.currency1);
+        if(tokenIn == address(i_usdc)) revert KipuBank_USDCMustBeDirectlyDeposited();
+        if(tokenOut != address(i_usdc)) revert KipuBank_TokenNotAllowedToBeSwappedIn(tokenOut, address(i_usdc));
+
+        uint256 protocolInitialBalance = IERC20(tokenOut).balanceOf(address(this));
+
+        _swapExactInputSingle(_key, tokenIn, _amountIn, _minAmountOut, _deadline);
+
+        uint256 protocolFinalBalance = IERC20(tokenOut).balanceOf(address(this));
+
+        uint256 receivedAmountAfterSwap = protocolFinalBalance - protocolInitialBalance;
+
+        if(contractBalanceInUSD() + receivedAmountAfterSwap > i_bankCap) revert KipuBank_BankCapReached(i_bankCap);
+
+        s_vault[msg.sender][address(i_usdc)] = s_vault[msg.sender][address(i_usdc)] + receivedAmountAfterSwap;
     }
 
     /**
@@ -184,6 +226,71 @@ contract KipuBankV3 is Ownable {
     }
 
     /*//////////////////////////
+            * Internal *
+    //////////////////////////*/
+    /**
+        @notice function to execute swaps of exact inputs
+        @notice outputs can vary accordingly to the _minAmountOut minimum value
+        @param _key the Pool struct info
+        @param _amountIn the amount to be swapped
+        @param _minAmountOut the minimum amount accepted after a swap
+        @param _deadline the maximum time a user accepts to wait for a swap completion
+        @dev this function can't handle ether and ERC20 inputs at same time.
+    */
+    function _swapExactInputSingle(
+        PoolKey calldata _key,
+        address _tokenIn,
+        uint128 _amountIn,
+        uint128 _minAmountOut,
+        uint48 _deadline
+    ) internal {
+        uint256 amountReceivedOfTokenIn;
+        if(_tokenIn != address(0)){
+            ///Handle FoT Tokens
+            uint256 balanceBeforeTransfer = IERC20(_tokenIn).balanceOf(address(this));
+            IERC20(_tokenIn).safeTransferFrom(msg.sender, address(this), _amountIn);
+            uint256 balanceAfterTransfer = IERC20(_tokenIn).balanceOf(address(this));
+            amountReceivedOfTokenIn = balanceAfterTransfer - balanceBeforeTransfer;
+
+            ///Update _amountIn input.
+            _amountIn = uint128(amountReceivedOfTokenIn);
+            
+            IERC20(_tokenIn).safeIncreaseAllowance(address(i_permit2), _amountIn);
+
+            i_permit2.approve(_tokenIn, address(i_router), _amountIn, _deadline);
+        }
+
+        bytes memory commands = abi.encodePacked(uint8(Commands.V4_SWAP));
+
+        bytes memory actions = abi.encodePacked(
+            uint8(Actions.SWAP_EXACT_IN_SINGLE),
+            uint8(Actions.SETTLE_ALL),
+            uint8(Actions.TAKE_ALL)
+        );
+        
+        bytes[] memory params = new bytes[](3);
+        params[0] = abi.encode(
+            IV4Router.ExactInputSingleParams({
+                poolKey: _key,
+                zeroForOne: true,
+                amountIn: _amountIn,
+                amountOutMinimum: _minAmountOut,
+                hookData: bytes("")
+            })
+        );
+        params[1] = abi.encode(_key.currency0, _amountIn);
+        params[2] = abi.encode(_key.currency1, _minAmountOut);
+
+        bytes[] memory inputs = new bytes[](1);
+        
+        inputs[0] = abi.encode(actions, params);
+        
+        emit KipuBank_SwapExecuted(msg.sender);
+        
+        i_router.execute(commands, inputs, _deadline);
+    }
+
+    /*//////////////////////////
             * Private *
     //////////////////////////*/
     /**
@@ -195,6 +302,10 @@ contract KipuBankV3 is Ownable {
 
         (bool success, bytes memory data) = msg.sender.call{value: _amount}("");
         if (!success) revert KipuBank_TransferFailed(data);
+    }
+
+    function _receiveERC20() private {
+
     }
 
     /*//////////////////////////

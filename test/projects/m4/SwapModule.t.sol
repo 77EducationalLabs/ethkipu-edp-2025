@@ -73,5 +73,9 @@ contract SwapModuleTest is BaseForkedTest {
             uint48(block.timestamp + 30)
         );
         vm.stopPrank();
+
+        assertGt(USDC.balanceOf(BARBA), minAmountOut);
+        assertEq(USDC.balanceOf(address(s_swap)), 0);
+        assertEq(WBTC.balanceOf(address(s_swap)), 0);
     }
 }

@@ -40,12 +40,16 @@ contract SwapModule {
     /*///////////////////////////////////
                 Events
     ///////////////////////////////////*/
+    ///@notice event emitted when the swap is successfully completed
     event SwapModule_SwapExecuted(address indexed user);
 
     /*///////////////////////////////////
                 Errors
     ///////////////////////////////////*/
+    ///@notice error emitted if the user inputs multiple tokens
     error SwapModule_MultipleTokenInputsAreNotAllowed(address native, address tokenIn);
+    ///@notice error emitted if the native token transfer fails
+    error SwapModule_TransactionFailed(bytes data);
 
     /*///////////////////////////////////
                 Modifiers
@@ -86,6 +90,7 @@ contract SwapModule {
         uint48 _deadline
     ) external payable {
         address tokenIn = Currency.unwrap(_key.currency0);
+        address tokenOut = Currency.unwrap(_key.currency1);
 
         if(msg.value > 0 && tokenIn != address(0)) revert SwapModule_MultipleTokenInputsAreNotAllowed(address(0), tokenIn);
         //1. encode the Universal Router command
@@ -129,10 +134,17 @@ contract SwapModule {
             i_permit2.approve(tokenIn, address(i_router), _amountIn, _deadline);
         }
         
+        emit SwapModule_SwapExecuted(msg.sender);
+        
         //7. Execute the swap
         i_router.execute{value: _amountIn}(commands, inputs, _deadline);
 
-        emit SwapModule_SwapExecuted(msg.sender);
+        if(tokenOut != address(0)){
+            IERC20(tokenOut).safeTransfer(msg.sender, IERC20(tokenOut).balanceOf(address(this)));
+        } else {
+            (bool success, bytes memory data) = msg.sender.call{value: address(this).balance}("");
+            if(!success) revert SwapModule_TransactionFailed(data);
+        }
     }
 
     /*///////////////////////////////////
