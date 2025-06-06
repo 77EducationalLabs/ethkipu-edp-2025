@@ -1,9 +1,10 @@
 ///SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.26;
 
 import { Test, console } from "forge-std/Test.sol";
 
 import { SwapModule } from "src/m4-projects/SwapModule.sol";
+import { KipuBankV3 } from "src/m4-exam/KipuBankV3.sol";
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IPermit2 } from "@uniswap/permit2/src/interfaces/IPermit2.sol";
@@ -11,6 +12,7 @@ import { IPermit2 } from "@uniswap/permit2/src/interfaces/IPermit2.sol";
 abstract contract BaseForkedTest is Test {
     ///@notice Contract Instances
     SwapModule public s_swap;
+    KipuBankV3 public s_bank;
 
     ///@notice Ethereum Uniswap Variables
     address payable constant UNIVERSAL_ROUTER_ADDRESS = payable(0x66a9893cC07D91D95644AEDD05D03f95e1dBA8Af);
@@ -30,12 +32,25 @@ abstract contract BaseForkedTest is Test {
     uint256 constant BTC_INITIAL_AMOUNT = 10e7;
     address constant BARBA = address(0x77);
 
+    ///@notice KipuBankV3 variables
+    uint256 constant BANK_CAP = 50_000e6;
+    address constant CHAINLINK_ETH_FEED = 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419;
+
     function setUp() public {
         vm.createSelectFork(vm.envString("ETH_RPC_URL"));
 
         s_swap = new SwapModule(
             UNIVERSAL_ROUTER_ADDRESS,
             PERMIT2_ADDRESS
+        );
+
+        s_bank = new KipuBankV3(
+            BANK_CAP,
+            CHAINLINK_ETH_FEED,
+            UNIVERSAL_ROUTER_ADDRESS,
+            PERMIT2_ADDRESS,
+            USDC_ADDRESS,
+            BARBA
         );
 
         vm.label(UNIVERSAL_ROUTER_ADDRESS, "UNIVERSAL_ROUTER");

@@ -18,7 +18,7 @@ import { IHooks } from "@uniswap/v4-core/src/interfaces/IHooks.sol";
 ///////////////////////////////////*/
 import { Actions } from "@uniswap/v4-periphery/src/libraries/Actions.sol";
 
-contract SwapModuleTest is BaseForkedTest {
+contract KipuBankV3Test is BaseForkedTest {
 
     /*///////////////////////////////////////////
                     Test's input
@@ -45,37 +45,27 @@ contract SwapModuleTest is BaseForkedTest {
         uint8(Actions.TAKE_ALL)
     );
 
-    function test_ethSwapSucceed() public {
-        uint128 amountIn = 1e18;
-        uint128 minAmountOut = 2400e6;
-
-        vm.startPrank(BARBA);
-        s_swap.swapExactInputSingle{value: amountIn}(
-            ETH_USDC_KEY, 
-            amountIn, 
-            minAmountOut, 
-            uint48(block.timestamp + 20)
-        );
-        vm.stopPrank();
-    }
-
-    function test_wBTCSwapSucceed() public {
+    function test_depositArbitraryTokenWorks() public {
         uint128 amountIn = 5e6;
         uint128 minAmountOut = 5_000e6;
 
         vm.startPrank(BARBA);
-        WBTC.approve(address(s_swap), amountIn);
+        WBTC.approve(address(s_bank), amountIn);
 
-        s_swap.swapExactInputSingle(
-            WBTC_USDC_KEY, 
-            amountIn, 
-            minAmountOut, 
+        uint256 balanceBeforeDeposit = USDC.balanceOf(address(s_bank));
+        s_bank.depositArbitraryToken(
+            WBTC_USDC_KEY,
+            amountIn,
+            minAmountOut,
             uint48(block.timestamp + 30)
         );
+        uint256 balanceAfterDeposit = USDC.balanceOf(address(s_bank));
         vm.stopPrank();
 
-        assertGt(USDC.balanceOf(BARBA), minAmountOut);
-        assertEq(USDC.balanceOf(address(s_swap)), 0);
-        assertEq(WBTC.balanceOf(address(s_swap)), 0);
+        assertEq(WBTC.balanceOf(BARBA), BTC_INITIAL_AMOUNT - amountIn);
+        assertGt(s_bank.s_vault(BARBA, USDC_ADDRESS), minAmountOut);
+        assertEq(WBTC.balanceOf(address(s_bank)), 0);
+        assertGt(balanceAfterDeposit, balanceBeforeDeposit + minAmountOut);
     }
+
 }

@@ -107,12 +107,14 @@ contract KipuBankV3 is Ownable {
         address _feed,
         address payable _router,
         address _permit2,
+        address _usdc,
         address _owner
     ) Ownable(_owner) {
         i_bankCap = _bankCap;
         s_feeds = AggregatorV3Interface(_feed);
         i_router = UniversalRouter(_router);
         i_permit2 = IPermit2(_permit2);
+        i_usdc = IERC20(_usdc);
     }
 
     modifier bankCapCheck(uint256 _usdcAmount) {
@@ -163,13 +165,9 @@ contract KipuBankV3 is Ownable {
         if(tokenIn == address(i_usdc)) revert KipuBank_USDCMustBeDirectlyDeposited();
         if(tokenOut != address(i_usdc)) revert KipuBank_TokenNotAllowedToBeSwappedIn(tokenOut, address(i_usdc));
 
-        uint256 protocolInitialBalance = IERC20(tokenOut).balanceOf(address(this));
+        uint256 receivedAmountFromUserTransfer = _processERC20Transfer(tokenIn, _amountIn);
 
-        _swapExactInputSingle(_key, tokenIn, _amountIn, _minAmountOut, _deadline);
-
-        uint256 protocolFinalBalance = IERC20(tokenOut).balanceOf(address(this));
-
-        uint256 receivedAmountAfterSwap = protocolFinalBalance - protocolInitialBalance;
+        uint256 receivedAmountAfterSwap = _swapExactInputSingle(_key, tokenIn, tokenOut, uint128(receivedAmountFromUserTransfer), _minAmountOut, _deadline);
 
         if(contractBalanceInUSD() + receivedAmountAfterSwap > i_bankCap) revert KipuBank_BankCapReached(i_bankCap);
 
@@ -190,7 +188,7 @@ contract KipuBankV3 is Ownable {
         s_withdrawsCounter = s_withdrawsCounter + 1;
         s_vault[msg.sender][address(0)] -= _amount;
 
-        _processTransfer(_amount);
+        _processNativeTransfer(_amount);
     }
 
     /**
@@ -226,8 +224,29 @@ contract KipuBankV3 is Ownable {
     }
 
     /*//////////////////////////
-            * Internal *
+            * Private *
     //////////////////////////*/
+    /**
+     * @notice internal function to process the ETH transfer from: contract -> to: user
+     * @dev emits an event if success
+     */
+    function _processNativeTransfer(uint256 _amount) private {
+        emit KipuBank_SuccessfullyWithdrawn(msg.sender, _amount);
+
+        (bool success, bytes memory data) = msg.sender.call{value: _amount}("");
+        if (!success) revert KipuBank_TransferFailed(data);
+    }
+
+    function _processERC20Transfer(address _tokenIn, uint256 _amountIn) private returns(uint256 receivedAmount_){
+        IERC20 tokenIn = IERC20(_tokenIn);
+
+        uint256 balanceBeforeTransfer = tokenIn.balanceOf(address(this));
+        tokenIn.safeTransferFrom(msg.sender, address(this), _amountIn);
+        uint256 balanceAfterTransfer = tokenIn.balanceOf(address(this));
+
+        receivedAmount_ = balanceAfterTransfer - balanceBeforeTransfer;
+    }
+
     /**
         @notice function to execute swaps of exact inputs
         @notice outputs can vary accordingly to the _minAmountOut minimum value
@@ -240,26 +259,11 @@ contract KipuBankV3 is Ownable {
     function _swapExactInputSingle(
         PoolKey calldata _key,
         address _tokenIn,
+        address _tokenOut,
         uint128 _amountIn,
         uint128 _minAmountOut,
         uint48 _deadline
-    ) internal {
-        uint256 amountReceivedOfTokenIn;
-        if(_tokenIn != address(0)){
-            ///Handle FoT Tokens
-            uint256 balanceBeforeTransfer = IERC20(_tokenIn).balanceOf(address(this));
-            IERC20(_tokenIn).safeTransferFrom(msg.sender, address(this), _amountIn);
-            uint256 balanceAfterTransfer = IERC20(_tokenIn).balanceOf(address(this));
-            amountReceivedOfTokenIn = balanceAfterTransfer - balanceBeforeTransfer;
-
-            ///Update _amountIn input.
-            _amountIn = uint128(amountReceivedOfTokenIn);
-            
-            IERC20(_tokenIn).safeIncreaseAllowance(address(i_permit2), _amountIn);
-
-            i_permit2.approve(_tokenIn, address(i_router), _amountIn, _deadline);
-        }
-
+    ) internal returns(uint256 swapResult_){
         bytes memory commands = abi.encodePacked(uint8(Commands.V4_SWAP));
 
         bytes memory actions = abi.encodePacked(
@@ -285,27 +289,16 @@ contract KipuBankV3 is Ownable {
         
         inputs[0] = abi.encode(actions, params);
         
+        IERC20(_tokenIn).safeIncreaseAllowance(address(i_permit2), _amountIn);
+        i_permit2.approve(_tokenIn, address(i_router), _amountIn, _deadline);
+
         emit KipuBank_SwapExecuted(msg.sender);
-        
+
+        uint256 balanceBeforeSwap = IERC20(_tokenOut).balanceOf(address(this));
         i_router.execute(commands, inputs, _deadline);
-    }
+        uint256 balanceAfterSwap = IERC20(_tokenOut).balanceOf(address(this));
 
-    /*//////////////////////////
-            * Private *
-    //////////////////////////*/
-    /**
-     * @notice internal function to process the ETH transfer from: contract -> to: user
-     * @dev emits an event if success
-     */
-    function _processTransfer(uint256 _amount) private {
-        emit KipuBank_SuccessfullyWithdrawn(msg.sender, _amount);
-
-        (bool success, bytes memory data) = msg.sender.call{value: _amount}("");
-        if (!success) revert KipuBank_TransferFailed(data);
-    }
-
-    function _receiveERC20() private {
-
+        swapResult_ = balanceAfterSwap - balanceBeforeSwap;
     }
 
     /*//////////////////////////
